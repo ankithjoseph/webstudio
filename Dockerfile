@@ -30,6 +30,15 @@ RUN pnpm build
 # pnpm deploy creates a self-contained directory without symlinks
 RUN pnpm --filter=@webstudio-is/builder deploy --prod /app/deployed
 
+# Copy the build output into the deployed directory
+RUN cp -r /app/apps/builder/build /app/deployed/build
+RUN cp -r /app/apps/builder/public /app/deployed/public
+
+# Debug: List contents to verify
+RUN ls -la /app/deployed/
+RUN ls -la /app/deployed/build/ || echo "No build directory"
+RUN ls -la /app/deployed/build/server/ || echo "No server directory"
+
 # ============================================
 # Stage 3: Production runner
 # ============================================
@@ -46,12 +55,8 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 webstudio
 
-# Copy the deployed application (self-contained, no symlinks)
+# Copy the deployed application with build output included
 COPY --from=builder --chown=webstudio:nodejs /app/deployed ./
-
-# Copy the built output
-COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/build ./build
-COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/public ./public
 
 USER webstudio
 
