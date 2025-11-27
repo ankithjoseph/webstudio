@@ -27,9 +27,6 @@ RUN pnpm --filter=@webstudio-is/prisma-client generate
 # Build all packages and the builder app
 RUN pnpm build
 
-# Prune dev dependencies for production
-RUN pnpm prune --prod
-
 # ============================================
 # Stage 3: Production runner
 # ============================================
@@ -50,6 +47,8 @@ RUN adduser --system --uid 1001 webstudio
 COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/build ./build
 COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/public ./public
 COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/package.json ./
+
+# Copy the entire node_modules (pnpm uses symlinks, so we need the full structure)
 COPY --from=builder --chown=webstudio:nodejs /app/node_modules ./node_modules
 
 # Copy Prisma schema and generated client (required at runtime)
@@ -59,5 +58,5 @@ USER webstudio
 
 EXPOSE 3000
 
-# Start the Remix server
-CMD ["node", "node_modules/@remix-run/serve/dist/cli.js", "build/server/index.js"]
+# Start the Remix server using the npm start script approach
+CMD ["npx", "remix-serve", "build/server/index.js"]
