@@ -34,10 +34,14 @@ RUN pnpm --filter=@webstudio-is/builder deploy --prod /app/deployed
 RUN cp -r /app/apps/builder/build /app/deployed/build
 RUN cp -r /app/apps/builder/public /app/deployed/public
 
-# Debug: List contents to verify
-RUN ls -la /app/deployed/
-RUN ls -la /app/deployed/build/ || echo "No build directory"
-RUN ls -la /app/deployed/build/server/ || echo "No server directory"
+# Find the actual server index.js path (Remix Vite creates a runtime-specific subfolder)
+# and create a symlink for easier access
+RUN SERVER_INDEX=$(find /app/deployed/build/server -name "index.js" -type f | head -1) && \
+    echo "Found server index at: $SERVER_INDEX" && \
+    ln -sf "$SERVER_INDEX" /app/deployed/build/server/index.js || true
+
+# Debug: Verify the symlink
+RUN ls -la /app/deployed/build/server/
 
 # ============================================
 # Stage 3: Production runner
