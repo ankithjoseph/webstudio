@@ -15,7 +15,6 @@ FROM base AS builder
 WORKDIR /app
 
 # Copy everything and install + build in one stage
-# This is simpler and more reliable for pnpm workspaces
 COPY . .
 
 # Install all dependencies
@@ -26,6 +25,10 @@ RUN pnpm --filter=@webstudio-is/prisma-client generate
 
 # Build all packages and the builder app
 RUN pnpm build
+
+# Deploy the builder app to a standalone directory
+# pnpm deploy creates a self-contained directory without symlinks
+RUN pnpm --filter=@webstudio-is/builder deploy --prod /app/deployed
 
 # ============================================
 # Stage 3: Production runner
@@ -43,20 +46,16 @@ ENV PORT=3000
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 webstudio
 
-# Copy built application and dependencies
+# Copy the deployed application (self-contained, no symlinks)
+COPY --from=builder --chown=webstudio:nodejs /app/deployed ./
+
+# Copy the built output
 COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/build ./build
 COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/public ./public
-COPY --from=builder --chown=webstudio:nodejs /app/apps/builder/package.json ./
-
-# Copy the entire node_modules (pnpm uses symlinks, so we need the full structure)
-COPY --from=builder --chown=webstudio:nodejs /app/node_modules ./node_modules
-
-# Copy Prisma schema and generated client (required at runtime)
-COPY --from=builder --chown=webstudio:nodejs /app/packages/prisma-client ./packages/prisma-client
 
 USER webstudio
 
 EXPOSE 3000
 
-# Start the Remix server using the npm start script approach
-CMD ["npx", "remix-serve", "build/server/index.js"]
+# Start the Remix server
+CMD ["node", "node_modules/@remix-run/serve/dist/cli.js", "build/server/index.js"]
